@@ -95,7 +95,7 @@ def deviceQuery():
             }
 
             try:
-                # if nvmlDeviceGetBrand() succeeds it is guaranteed to be in the dictionary
+                # If nvmlDeviceGetBrand() succeeds it is guaranteed to be in the dictionary
                 brandName = brandNames[nvmlDeviceGetBrand(handle)]
             except NVMLError as err:
                 brandName = handleError(err)
@@ -152,7 +152,7 @@ def deviceQuery():
 
     return strResult
 
-# this is not exectued when module is imported
+# If this is not exectued when module is imported
 if __name__ == "__main__":
     print(deviceQuery())
 
