@@ -1,5 +1,5 @@
 #################################################################################
-# Copyright (c) 2019, NVIDIA Corporation.  All rights reserved.                 #
+# Copyright (c) 2020, NVIDIA Corporation.  All rights reserved.                 #
 #                                                                               #
 # Redistribution and use in source and binary forms, with or without            #
 # modification, are permitted provided that the following conditions are met:   #
@@ -85,13 +85,24 @@ def deviceQuery():
 
             strResult += '    <product_name>' + nvmlDeviceGetName(handle) + '</product_name>\n'
 
-            brandNames = {NVML_BRAND_UNKNOWN :  "Unknown",
-                          NVML_BRAND_QUADRO  :  "Quadro",
-                          NVML_BRAND_TESLA   :  "Tesla",
-                          NVML_BRAND_NVS     :  "NVS",
-                          NVML_BRAND_GRID    :  "Grid",
-                          NVML_BRAND_TITAN   :  "Titan",
-                          NVML_BRAND_GEFORCE :  "GeForce",
+            brandNames = {NVML_BRAND_UNKNOWN         :  "Unknown",
+                          NVML_BRAND_QUADRO          :  "Quadro",
+                          NVML_BRAND_TESLA           :  "Tesla",
+                          NVML_BRAND_NVS             :  "NVS",
+                          NVML_BRAND_GRID            :  "Grid",
+                          NVML_BRAND_TITAN           :  "Titan",
+                          NVML_BRAND_GEFORCE         :  "GeForce",
+                          NVML_BRAND_NVIDIA_VAPPS    :  "NVIDIA Virtual Applications",
+                          NVML_BRAND_NVIDIA_VPC      :  "NVIDIA Virtual PC",
+                          NVML_BRAND_NVIDIA_VCS      :  "NVIDIA Virtual Compute Server",
+                          NVML_BRAND_NVIDIA_VWS      :  "NVIDIA RTX Virtual Workstation",
+                          NVML_BRAND_NVIDIA_VGAMING  :  "NVIDIA vGaming",
+                          NVML_BRAND_QUADRO_RTX      :  "Quadro RTX",
+                          NVML_BRAND_NVIDIA_RTX      :  "NVIDIA RTX",
+                          NVML_BRAND_NVIDIA          :  "NVIDIA",
+                          NVML_BRAND_GEFORCE_RTX     :  "GeForce RTX",
+                          NVML_BRAND_TITAN_RTX       :  "TITAN RTX",
+
             }
 
             try:
@@ -127,11 +138,11 @@ def deviceQuery():
             try:
                 gridLicensableFeatures = nvmlDeviceGetGridLicensableFeatures(handle)
                 if gridLicensableFeatures.isGridLicenseSupported == 1:
-                    strResult += '    <grid_licensed_product>\n'
+                    strResult += '    <vgpu_software_licensed_product>\n'
                     for i in range(gridLicensableFeatures.licensableFeaturesCount):
                         if gridLicensableFeatures.gridLicensableFeatures[i].featureState == 0:
                             if nvmlDeviceGetVirtualizationMode(handle) == NVML_GPU_VIRTUALIZATION_MODE_PASSTHROUGH:
-                                strResult += '        <licensed_product_name>' + 'GRID Virtual Applications' + '</licensed_product_name>\n'
+                                strResult += '        <licensed_product_name>' + 'NVIDIA Virtual Applications' + '</licensed_product_name>\n'
                                 strResult += '        <license_status>' + 'Licensed' + '</license_status>\n'
                             else:
                                 strResult += '        <licensed_product_name>' + gridLicensableFeatures.gridLicensableFeatures[i].productName + '</licensed_product_name>\n'
@@ -139,7 +150,7 @@ def deviceQuery():
                         else:
                             strResult += '        <licensed_product_name>' + gridLicensableFeatures.gridLicensableFeatures[i].productName + '</licensed_product_name>\n'
                             strResult += '        <license_status>' + 'Licensed' + '</license_status>\n'
-                    strResult += '    </grid_licensed_product>\n'
+                    strResult += '    </vgpu_software_licensed_product>\n'
             except NVMLError as err:
                 gridLicensableFeatures = handleError(err)
 

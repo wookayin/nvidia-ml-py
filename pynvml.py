@@ -1,5 +1,5 @@
 #####
-# Copyright (c) 2011-2019, NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2011-2020, NVIDIA Corporation.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -43,21 +43,34 @@ NVML_FEATURE_DISABLED    = 0
 NVML_FEATURE_ENABLED     = 1
 
 _nvmlBrandType_t = c_uint
-NVML_BRAND_UNKNOWN = 0
-NVML_BRAND_QUADRO  = 1
-NVML_BRAND_TESLA   = 2
-NVML_BRAND_NVS     = 3
-NVML_BRAND_GRID    = 4
-NVML_BRAND_GEFORCE = 5
-NVML_BRAND_TITAN   = 6
-NVML_BRAND_COUNT   = 7
+NVML_BRAND_UNKNOWN        = 0
+NVML_BRAND_QUADRO         = 1   
+NVML_BRAND_TESLA          = 2   
+NVML_BRAND_NVS            = 3
+NVML_BRAND_GRID           = 4   # Deprecated from API reporting. Keeping definition for backward compatibility.
+NVML_BRAND_GEFORCE        = 5   
+NVML_BRAND_TITAN          = 6   
+NVML_BRAND_NVIDIA_VAPPS   = 7   # NVIDIA Virtual Applications
+NVML_BRAND_NVIDIA_VPC     = 8   # NVIDIA Virtual PC
+NVML_BRAND_NVIDIA_VCS     = 9   # NVIDIA Virtual Compute Server
+NVML_BRAND_NVIDIA_VWS     = 10  # NVIDIA RTX Virtual Workstation
+NVML_BRAND_NVIDIA_VGAMING = 11  # NVIDIA vGaming
+NVML_BRAND_QUADRO_RTX     = 12  
+NVML_BRAND_NVIDIA_RTX     = 13  
+NVML_BRAND_NVIDIA         = 14  
+NVML_BRAND_GEFORCE_RTX    = 15  # Unused  
+NVML_BRAND_TITAN_RTX      = 16  # Unused
+NVML_BRAND_COUNT          = 17
 
 _nvmlTemperatureThresholds_t = c_uint
-NVML_TEMPERATURE_THRESHOLD_SHUTDOWN = 0
-NVML_TEMPERATURE_THRESHOLD_SLOWDOWN = 1
-NVML_TEMPERATURE_THRESHOLD_MEM_MAX  = 2
-NVML_TEMPERATURE_THRESHOLD_GPU_MAX  = 3
-NVML_TEMPERATURE_THRESHOLD_COUNT = 4
+NVML_TEMPERATURE_THRESHOLD_SHUTDOWN      = 0
+NVML_TEMPERATURE_THRESHOLD_SLOWDOWN      = 1
+NVML_TEMPERATURE_THRESHOLD_MEM_MAX       = 2
+NVML_TEMPERATURE_THRESHOLD_GPU_MAX       = 3
+NVML_TEMPERATURE_THRESHOLD_ACOUSTIC_MIN  = 4
+NVML_TEMPERATURE_THRESHOLD_ACOUSTIC_CURR = 5
+NVML_TEMPERATURE_THRESHOLD_ACOUSTIC_MAX  = 6
+NVML_TEMPERATURE_THRESHOLD_COUNT         = 7
 
 _nvmlTemperatureSensors_t = c_uint
 NVML_TEMPERATURE_GPU     = 0
@@ -92,7 +105,15 @@ NVML_NVLINK_ERROR_DL_REPLAY = 0
 NVML_NVLINK_ERROR_DL_RECOVERY = 1
 NVML_NVLINK_ERROR_DL_CRC_FLIT = 2
 NVML_NVLINK_ERROR_DL_CRC_DATA = 3
-NVML_NVLINK_ERROR_COUNT = 4
+NVML_NVLINK_ERROR_DL_ECC_DATA = 4
+NVML_NVLINK_ERROR_COUNT = 5
+
+_nvmlNvLinkEccLaneErrorCounter_t = c_uint
+NVML_NVLINK_ERROR_DL_ECC_LANE0 = 0
+NVML_NVLINK_ERROR_DL_ECC_LANE1 = 1
+NVML_NVLINK_ERROR_DL_ECC_LANE2 = 2
+NVML_NVLINK_ERROR_DL_ECC_LANE3 = 3
+NVML_NVLINK_ERROR_DL_ECC_COUNT = 5
 
 _nvmlNvLinkCapability_t = c_uint
 NVML_NVLINK_CAP_P2P_SUPPORTED = 0
@@ -569,7 +590,25 @@ NVML_FI_DEV_REMAPPED_FAILURE    = 145
 #Remote device NVLink ID
 NVML_FI_DEV_NVLINK_REMOTE_NVLINK_ID = 146
 
-NVML_FI_MAX = 147 # One greater than the largest field ID defined above
+# Number of NVLinks connected to NVSwitch
+NVML_FI_DEV_NVSWITCH_CONNECTED_LINK_COUNT = 147
+
+# NvLink ECC Data Error Counters
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L0    = 148 #< NVLink data ECC Error Counter for Link 0
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L1    = 149 #< NVLink data ECC Error Counter for Link 1
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L2    = 150 #< NVLink data ECC Error Counter for Link 2
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L3    = 151 #< NVLink data ECC Error Counter for Link 3
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L4    = 152 #< NVLink data ECC Error Counter for Link 4
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L5    = 153 #< NVLink data ECC Error Counter for Link 5
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L6    = 154 #< NVLink data ECC Error Counter for Link 6
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L7    = 155 #< NVLink data ECC Error Counter for Link 7
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L8    = 156 #< NVLink data ECC Error Counter for Link 8
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L9    = 157 #< NVLink data ECC Error Counter for Link 9
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L10   = 158 #< NVLink data ECC Error Counter for Link 10
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_L11   = 159 #< NVLink data ECC Error Counter for Link 11
+NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL = 160 #< NvLink data ECC Error Counter total for all Links
+
+NVML_FI_MAX = 161 # One greater than the largest field ID defined above
 
 ## Enums needed for the method nvmlDeviceGetVirtualizationMode and nvmlDeviceSetVirtualizationMode
 NVML_GPU_VIRTUALIZATION_MODE_NONE        = 0  # Represents Bare Metal GPU
@@ -594,7 +633,8 @@ NVML_VGPU_VM_ID_UUID         = 1
 _nvmlGridLicenseFeatureCode_t = c_uint
 NVML_GRID_LICENSE_FEATURE_CODE_UNKNOWN      = 0
 NVML_GRID_LICENSE_FEATURE_CODE_VGPU         = 1
-NVML_GRID_LICENSE_FEATURE_CODE_VWORKSTATION = 2
+NVML_GRID_LICENSE_FEATURE_CODE_NVIDIA_RTX   = 2
+NVML_GRID_LICENSE_FEATURE_CODE_VWORKSTATION = 2 # deprecated, use NVML_GRID_LICENSE_FEATURE_CODE_NVIDIA_RTX.
 NVML_GRID_LICENSE_FEATURE_CODE_GAMING       = 3
 NVML_GRID_LICENSE_FEATURE_CODE_COMPUTE      = 4
 
@@ -1215,7 +1255,8 @@ NVML_GPU_INSTANCE_PROFILE_3_SLICE = 0x2
 NVML_GPU_INSTANCE_PROFILE_4_SLICE = 0x3
 NVML_GPU_INSTANCE_PROFILE_7_SLICE = 0x4
 NVML_GPU_INSTANCE_PROFILE_8_SLICE = 0x5
-NVML_GPU_INSTANCE_PROFILE_COUNT   = 0x6
+NVML_GPU_INSTANCE_PROFILE_6_SLICE = 0x6
+NVML_GPU_INSTANCE_PROFILE_COUNT   = 0x7
 
 class c_nvmlGpuInstancePlacement_t(Structure):
     _fields_ = [("start", c_uint),
@@ -1253,7 +1294,8 @@ NVML_COMPUTE_INSTANCE_PROFILE_3_SLICE = 0x2
 NVML_COMPUTE_INSTANCE_PROFILE_4_SLICE = 0x3
 NVML_COMPUTE_INSTANCE_PROFILE_7_SLICE = 0x4
 NVML_COMPUTE_INSTANCE_PROFILE_8_SLICE = 0x5
-NVML_COMPUTE_INSTANCE_PROFILE_COUNT   = 0x6
+NVML_COMPUTE_INSTANCE_PROFILE_6_SLICE = 0x6
+NVML_COMPUTE_INSTANCE_PROFILE_COUNT   = 0x7
 
 NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_SHARED = 0x0
 NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_COUNT = 0x1
@@ -1841,6 +1883,13 @@ def nvmlDeviceGetTemperatureThreshold(handle, threshold):
     ret = fn(handle, _nvmlTemperatureThresholds_t(threshold), byref(c_temp))
     _nvmlCheckReturn(ret)
     return c_temp.value
+
+def nvmlDeviceSetTemperatureThreshold(handle, threshold):
+    c_temp = c_uint()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceSetTemperatureThreshold")
+    ret = fn(handle, _nvmlTemperatureThresholds_t(threshold), byref(c_temp))
+    _nvmlCheckReturn(ret)
+    return None
 
 # DEPRECATED use nvmlDeviceGetPerformanceState
 def nvmlDeviceGetPowerState(handle):
@@ -2898,6 +2947,13 @@ def nvmlVgpuInstanceGetFbUsage(vgpuInstance):
     _nvmlCheckReturn(ret)
     return c_fb_usage.value
 
+def nvmlVgpuInstanceGetGpuInstanceId(vgpuInstance):
+    c_id = c_uint(0)
+    fn  = _nvmlGetFunctionPointer("nvmlVgpuInstanceGetGpuInstanceId")
+    ret = fn(vgpuInstance, byref(c_id))
+    _nvmlCheckReturn(ret)
+    return (c_id.value)
+
 def nvmlDeviceGetVgpuUtilization(handle, timeStamp):
     # first call to get the size
     c_vgpu_count = c_uint(0)
@@ -3289,6 +3345,13 @@ def nvmlDeviceCreateGpuInstance(device, profileId):
     c_instance = c_nvmlGpuInstance_t()
     fn = _nvmlGetFunctionPointer("nvmlDeviceCreateGpuInstance")
     ret = fn(device, profileId, byref(c_instance))
+    _nvmlCheckReturn(ret)
+    return c_instance
+
+def nvmlDeviceCreateGpuInstanceWithPlacement(device, profileId, placement):
+    c_instance = c_nvmlGpuInstance_t()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceCreateGpuInstanceWithPlacement")
+    ret = fn(device, profileId, placement, byref(c_instance))
     _nvmlCheckReturn(ret)
     return c_instance
 
