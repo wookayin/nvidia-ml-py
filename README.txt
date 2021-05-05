@@ -135,8 +135,6 @@ Version 10.418
 - Added new functions for NVML 10.418.  See NVML documentation for more information.
 - Fixed issues with using the bindings with Python 3.x
 - Replaced sample app nvidia_smi.py with example.py
-Version 11.450.51
-- Added new functions for NVML 11.450.51.  See NVML documentation for more information.
 
 COPYRIGHT
 ---------

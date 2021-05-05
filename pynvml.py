@@ -566,7 +566,10 @@ NVML_FI_DEV_REMAPPED_UNC        = 143
 NVML_FI_DEV_REMAPPED_PENDING    = 144
 NVML_FI_DEV_REMAPPED_FAILURE    = 145
 
-NVML_FI_MAX = 146 # One greater than the largest field ID defined above
+#Remote device NVLink ID
+NVML_FI_DEV_NVLINK_REMOTE_NVLINK_ID = 146
+
+NVML_FI_MAX = 147 # One greater than the largest field ID defined above
 
 ## Enums needed for the method nvmlDeviceGetVirtualizationMode and nvmlDeviceSetVirtualizationMode
 NVML_GPU_VIRTUALIZATION_MODE_NONE        = 0  # Represents Bare Metal GPU
@@ -589,8 +592,11 @@ NVML_VGPU_VM_ID_DOMAIN_ID    = 0
 NVML_VGPU_VM_ID_UUID         = 1
 
 _nvmlGridLicenseFeatureCode_t = c_uint
+NVML_GRID_LICENSE_FEATURE_CODE_UNKNOWN      = 0
 NVML_GRID_LICENSE_FEATURE_CODE_VGPU         = 1
 NVML_GRID_LICENSE_FEATURE_CODE_VWORKSTATION = 2
+NVML_GRID_LICENSE_FEATURE_CODE_GAMING       = 3
+NVML_GRID_LICENSE_FEATURE_CODE_COMPUTE      = 4
 
 _nvmlVgpuGuestInfoState_t = c_uint
 NVML_VGPU_INSTANCE_GUEST_INFO_STATE_UNINITIALIZED = 0
@@ -914,6 +920,8 @@ class c_nvmlProcessInfo_t(_PrintableStructure):
     _fields_ = [
         ('pid', c_uint),
         ('usedGpuMemory', c_ulonglong),
+        ('gpuInstanceId', c_uint),
+        ('computeInstanceId', c_uint),
     ]
     _fmt_ = {'usedGpuMemory': "%d B"}
 
@@ -1206,7 +1214,8 @@ NVML_GPU_INSTANCE_PROFILE_2_SLICE = 0x1
 NVML_GPU_INSTANCE_PROFILE_3_SLICE = 0x2
 NVML_GPU_INSTANCE_PROFILE_4_SLICE = 0x3
 NVML_GPU_INSTANCE_PROFILE_7_SLICE = 0x4
-NVML_GPU_INSTANCE_PROFILE_COUNT   = 0x5
+NVML_GPU_INSTANCE_PROFILE_8_SLICE = 0x5
+NVML_GPU_INSTANCE_PROFILE_COUNT   = 0x6
 
 class c_nvmlGpuInstancePlacement_t(Structure):
     _fields_ = [("start", c_uint),
@@ -1243,10 +1252,16 @@ NVML_COMPUTE_INSTANCE_PROFILE_2_SLICE = 0x1
 NVML_COMPUTE_INSTANCE_PROFILE_3_SLICE = 0x2
 NVML_COMPUTE_INSTANCE_PROFILE_4_SLICE = 0x3
 NVML_COMPUTE_INSTANCE_PROFILE_7_SLICE = 0x4
-NVML_COMPUTE_INSTANCE_PROFILE_COUNT   = 0x5
+NVML_COMPUTE_INSTANCE_PROFILE_8_SLICE = 0x5
+NVML_COMPUTE_INSTANCE_PROFILE_COUNT   = 0x6
 
 NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_SHARED = 0x0
 NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_COUNT = 0x1
+
+class c_nvmlComputeInstancePlacement_t(Structure):
+    _fields_ = [("start", c_uint),
+                ("size", c_uint)
+               ]
 
 class c_nvmlComputeInstanceProfileInfo_t(Structure):
     _fields_ = [("id", c_uint),
@@ -1264,7 +1279,8 @@ class c_nvmlComputeInstanceInfo_t(Structure):
     _fields_ = [("device", c_nvmlDevice_t),
                 ("gpuInstance", c_nvmlGpuInstance_t),
                 ("id", c_uint),
-                ("profileId", c_uint)
+                ("profileId", c_uint),
+                ("placement", c_nvmlComputeInstancePlacement_t)
                ]
 
 class struct_c_nvmlComputeInstance_t(Structure):
@@ -2041,10 +2057,47 @@ def nvmlDeviceGetVbiosVersion(handle):
     return c_version.value
 
 # Added in 2.285
-def nvmlDeviceGetComputeRunningProcesses(handle):
+def nvmlDeviceGetComputeRunningProcesses_v2(handle):
     # first call to get the size
     c_count = c_uint(0)
-    fn = _nvmlGetFunctionPointer("nvmlDeviceGetComputeRunningProcesses")
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetComputeRunningProcesses_v2")
+    ret = fn(handle, byref(c_count), None)
+
+    if (ret == NVML_SUCCESS):
+        # special case, no running processes
+        return []
+    elif (ret == NVML_ERROR_INSUFFICIENT_SIZE):
+        # typical case
+        # oversize the array incase more processes are created
+        c_count.value = c_count.value * 2 + 5
+        proc_array = c_nvmlProcessInfo_t * c_count.value
+        c_procs = proc_array()
+
+        # make the call again
+        ret = fn(handle, byref(c_count), c_procs)
+        _nvmlCheckReturn(ret)
+
+        procs = []
+        for i in range(c_count.value):
+            # use an alternative struct for this object
+            obj = nvmlStructToFriendlyObject(c_procs[i])
+            if (obj.usedGpuMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
+                # special case for WDDM on Windows, see comment above
+                obj.usedGpuMemory = None
+            procs.append(obj)
+
+        return procs
+    else:
+        # error case
+        raise NVMLError(ret)
+
+def nvmlDeviceGetComputeRunningProcesses(handle):
+    return nvmlDeviceGetComputeRunningProcesses_v2(handle);
+
+def nvmlDeviceGetGraphicsRunningProcesses_v2(handle):
+    # first call to get the size
+    c_count = c_uint(0)
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetGraphicsRunningProcesses_v2")
     ret = fn(handle, byref(c_count), None)
 
     if (ret == NVML_SUCCESS):
@@ -2076,38 +2129,7 @@ def nvmlDeviceGetComputeRunningProcesses(handle):
         raise NVMLError(ret)
 
 def nvmlDeviceGetGraphicsRunningProcesses(handle):
-    # first call to get the size
-    c_count = c_uint(0)
-    fn = _nvmlGetFunctionPointer("nvmlDeviceGetGraphicsRunningProcesses")
-    ret = fn(handle, byref(c_count), None)
-
-    if (ret == NVML_SUCCESS):
-        # special case, no running processes
-        return []
-    elif (ret == NVML_ERROR_INSUFFICIENT_SIZE):
-        # typical case
-        # oversize the array incase more processes are created
-        c_count.value = c_count.value * 2 + 5
-        proc_array = c_nvmlProcessInfo_t * c_count.value
-        c_procs = proc_array()
-
-        # make the call again
-        ret = fn(handle, byref(c_count), c_procs)
-        _nvmlCheckReturn(ret)
-
-        procs = []
-        for i in range(c_count.value):
-            # use an alternative struct for this object
-            obj = nvmlStructToFriendlyObject(c_procs[i])
-            if (obj.usedGpuMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
-                # special case for WDDM on Windows, see comment above
-                obj.usedGpuMemory = None
-            procs.append(obj)
-
-        return procs
-    else:
-        # error case
-        raise NVMLError(ret)
+    return nvmlDeviceGetGraphicsRunningProcesses_v2(handle)
 
 def nvmlDeviceGetAutoBoostedClocksEnabled(handle):
     c_isEnabled = _nvmlEnableState_t()
@@ -2688,6 +2710,13 @@ def nvmlDeviceGetCreatableVgpus(handle):
     else:
         # error case
         raise NVMLError(ret)
+
+def nvmlVgpuTypeGetGpuInstanceProfileId(vgpuTypeId):
+    c_profile_id = c_uint(0)
+    fn  = _nvmlGetFunctionPointer("nvmlVgpuTypeGetGpuInstanceProfileId")
+    ret = fn(vgpuTypeId, byref(c_profile_id))
+    _nvmlCheckReturn(ret)
+    return (c_profile_id.value)
 
 def nvmlVgpuTypeGetClass(vgpuTypeId):
     c_class = create_string_buffer(NVML_DEVICE_NAME_BUFFER_SIZE)
@@ -3329,12 +3358,15 @@ def nvmlGpuInstanceGetComputeInstanceById(gpuInstance, computeInstanceId):
     _nvmlCheckReturn(ret)
     return c_instance
 
-def nvmlComputeInstanceGetInfo(computeInstance):
+def nvmlComputeInstanceGetInfo_v2(computeInstance):
     c_info = c_nvmlComputeInstanceInfo_t()
-    fn = _nvmlGetFunctionPointer("nvmlComputeInstanceGetInfo")
+    fn = _nvmlGetFunctionPointer("nvmlComputeInstanceGetInfo_v2")
     ret = fn(computeInstance, byref(c_info))
     _nvmlCheckReturn(ret)
     return c_info
+
+def nvmlComputeInstanceGetInfo(computeInstance):
+    return nvmlComputeInstanceGetInfo_v2(computeInstance)
 
 def nvmlDeviceIsMigDeviceHandle(device):
     c_isMigDevice = c_uint()
