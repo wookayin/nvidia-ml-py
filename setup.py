@@ -10,7 +10,7 @@ if version < '2.2.3':
 _package_name='nvidia-ml-py'
 
 setup(name=_package_name,
-      version='11.460.79',
+      version='11.470.66',
       description='Python Bindings for the NVIDIA Management Library',
       py_modules=['pynvml', 'example'],
       package_data={_package_name: ['Example.txt']},
