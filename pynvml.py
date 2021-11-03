@@ -352,6 +352,14 @@ NVML_DEVICE_ARCH_TURING   = 6
 NVML_DEVICE_ARCH_AMPERE   = 7
 NVML_DEVICE_ARCH_UNKNOWN  = 0xffffffff
 
+# PCI bus Types
+_nvmlBusType_t = c_uint
+NVML_BUS_TYPE_UNKNOWN = 0
+NVML_BUS_TYPE_PCI     = 1
+NVML_BUS_TYPE_PCIE    = 2
+NVML_BUS_TYPE_FPCI    = 3
+NVML_BUS_TYPE_AGP     = 4
+
 _nvmlClockLimitId_t = c_uint
 NVML_CLOCK_LIMIT_ID_RANGE_START = 0xffffff00
 NVML_CLOCK_LIMIT_ID_TDP         = 0xffffff01
@@ -1076,6 +1084,23 @@ class c_nvmlVgpuProcessUtilizationSample_t(_PrintableStructure):
         ('memUtil', c_uint),
         ('encUtil', c_uint),
         ('decUtil', c_uint),
+    ]
+
+class c_nvmlVgpuLicenseExpiry_t(_PrintableStructure):
+    _fields_ = [
+        ('year',    c_uint32),
+        ('month',   c_uint16),
+        ('day',     c_uint16),
+        ('hour',    c_uint16),
+        ('min',     c_uint16),
+        ('sec',     c_uint16),
+        ('status',  c_uint8),
+    ]
+
+class c_nvmlVgpuLicenseInfo_t(_PrintableStructure):
+    _fields_ = [
+        ('isLicensed',      c_uint8),
+        ('licenseExpiry',   c_nvmlVgpuLicenseExpiry_t),
     ]
 
 class c_nvmlEncoderSession_t(_PrintableStructure):
@@ -3023,6 +3048,13 @@ def nvmlVgpuInstanceGetLicenseStatus(vgpuInstance):
     _nvmlCheckReturn(ret)
     return c_license_status.value
 
+def nvmlVgpuInstanceGetLicenseInfo(vgpuInstance):
+    fn  = _nvmlGetFunctionPointer("nvmlVgpuInstanceGetLicenseInfo")
+    c_license_info = c_nvmlVgpuLicenseInfo_t()
+    ret = fn(vgpuInstance, byref(c_license_info))
+    _nvmlCheckReturn(ret)
+    return c_license_info
+
 def nvmlVgpuInstanceGetFrameRateLimit(vgpuInstance):
     c_frl = c_uint(0)
     fn  = _nvmlGetFunctionPointer("nvmlVgpuInstanceGetFrameRateLimit")
@@ -3622,3 +3654,18 @@ def nvmlDeviceGetArchitecture(device):
     ret = fn(device, byref(arch))
     _nvmlCheckReturn(ret)
     return arch.value
+
+def nvmlDeviceGetBusType(device):
+    c_busType = _nvmlBusType_t()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetBusType")
+    ret = fn(device, byref(c_busType))
+    _nvmlCheckReturn(ret)
+    return c_busType.value
+
+def nvmlDeviceGetIrqNum(device):
+    c_irqNum = c_uint()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetIrqNum")
+    ret = fn(device, byref(c_irqNum))
+    _nvmlCheckReturn(ret)
+    return c_irqNum.value
+
