@@ -31,6 +31,7 @@
 ##
 from ctypes import *
 from ctypes.util import find_library
+from functools import wraps
 import sys
 import os
 import threading
@@ -182,6 +183,8 @@ NVML_CLOCK_ID_COUNT              = 4
 _nvmlDriverModel_t = c_uint
 NVML_DRIVER_WDDM       = 0
 NVML_DRIVER_WDM        = 1
+
+NVML_MAX_GPU_PERF_PSTATES = 16
 
 _nvmlPstates_t = c_uint
 NVML_PSTATE_0               = 0
@@ -643,6 +646,7 @@ NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL = 160 #< NvLink data ECC Error Cou
 
 NVML_FI_MAX = 161 # One greater than the largest field ID defined above
 
+
 ## Enums needed for the method nvmlDeviceGetVirtualizationMode and nvmlDeviceSetVirtualizationMode
 NVML_GPU_VIRTUALIZATION_MODE_NONE        = 0  # Represents Bare Metal GPU
 NVML_GPU_VIRTUALIZATION_MODE_PASSTHROUGH = 1  # Device is associated with GPU-Passthorugh
@@ -829,7 +833,8 @@ def nvmlStructToFriendlyObject(struct):
     for x in struct._fields_:
         key = x[0]
         value = getattr(struct, key)
-        d[key] = value
+        # only need to convert from bytes if bytes, no need to check python version.
+        d[key] = value.decode() if isinstance(value, bytes) else value
     obj = nvmlFriendlyObject(d)
     return obj
 
@@ -838,7 +843,11 @@ def nvmlFriendlyObjectToStruct(obj, model):
     for x in model._fields_:
         key = x[0]
         value = obj.__dict__[key]
-        setattr(model, key, value)
+        # any c_char_p in python3 needs to be bytes, default encoding works fine.
+        if sys.version_info >= (3,):
+            setattr(model, key, value.encode())
+        else:
+            setattr(model, key, value)
     return model
 
 ## Unit structures
@@ -878,6 +887,25 @@ class _PrintableStructure(Structure):
                 fmt = self._fmt_["<default>"]
             result.append(("%s: " + fmt) % (key, value))
         return self.__class__.__name__ + "(" +  ", ".join(result) + ")"
+
+    def __getattribute__(self, name):
+        res = super(_PrintableStructure, self).__getattribute__(name)
+        # need to convert bytes to unicode for python3 don't need to for python2
+        # Python 2 strings are of both str and bytes
+        # Python 3 strings are not of type bytes
+        # ctypes should convert everything to the correct values otherwise
+        if isinstance(res, bytes):
+            if isinstance(res, str):
+                return res
+            return res.decode()
+        return res
+
+    def __setattr__(self, name, value):
+        if isinstance(value, str):
+            # encoding a python2 string returns the same value, since python2 strings are bytes already
+            # bytes passed in python3 will be ignored.
+            value = value.encode()
+        super(_PrintableStructure, self).__setattr__(name, value)
 
 class c_nvmlUnitInfo_t(_PrintableStructure):
     _fields_ = [
@@ -1491,6 +1519,63 @@ class c_nvmlComputeInstanceInfo_t(Structure):
                 ("placement", c_nvmlComputeInstancePlacement_t)
                ]
 
+NVML_MAX_GPU_UTILIZATIONS = 8
+NVML_GPU_UTILIZATION_DOMAIN_GPU    = 0
+NVML_GPU_UTILIZATION_DOMAIN_FB     = 1
+NVML_GPU_UTILIZATION_DOMAIN_VID    = 2
+NVML_GPU_UTILIZATION_DOMAIN_BUS    = 3
+class c_nvmlGpuDynamicPstatesUtilization_t(Structure):
+    _fields_ = [("bIsPresent", c_uint, 1),
+                ("percentage", c_uint),
+                ("incThreshold", c_uint),
+                ("decThreshold", c_uint)]
+class c_nvmlGpuDynamicPstatesInfo_t(Structure):
+    _fields_ = [("flags", c_uint),
+                ("utilization", c_nvmlGpuDynamicPstatesUtilization_t * NVML_MAX_GPU_UTILIZATIONS)]
+
+NVML_MAX_THERMAL_SENSORS_PER_GPU = 3
+
+NVML_THERMAL_TARGET_NONE          = 0
+NVML_THERMAL_TARGET_GPU           = 1
+NVML_THERMAL_TARGET_MEMORY        = 2
+NVML_THERMAL_TARGET_POWER_SUPPLY  = 4
+NVML_THERMAL_TARGET_BOARD         = 8
+NVML_THERMAL_TARGET_VCD_BOARD     = 9
+NVML_THERMAL_TARGET_VCD_INLET     = 10
+NVML_THERMAL_TARGET_VCD_OUTLET    = 11
+NVML_THERMAL_TARGET_ALL           = 15
+NVML_THERMAL_TARGET_UNKNOWN       = -1
+
+NVML_THERMAL_CONTROLLER_NONE            = 0
+NVML_THERMAL_CONTROLLER_GPU_INTERNAL    = 1
+NVML_THERMAL_CONTROLLER_ADM1032         = 2
+NVML_THERMAL_CONTROLLER_ADT7461         = 3
+NVML_THERMAL_CONTROLLER_MAX6649         = 4
+NVML_THERMAL_CONTROLLER_MAX1617         = 5
+NVML_THERMAL_CONTROLLER_LM99            = 6
+NVML_THERMAL_CONTROLLER_LM89            = 7
+NVML_THERMAL_CONTROLLER_LM64            = 8
+NVML_THERMAL_CONTROLLER_G781            = 9
+NVML_THERMAL_CONTROLLER_ADT7473         = 10
+NVML_THERMAL_CONTROLLER_SBMAX6649       = 11
+NVML_THERMAL_CONTROLLER_VBIOSEVT        = 12
+NVML_THERMAL_CONTROLLER_OS              = 13
+NVML_THERMAL_CONTROLLER_NVSYSCON_CANOAS = 14
+NVML_THERMAL_CONTROLLER_NVSYSCON_E551   = 15
+NVML_THERMAL_CONTROLLER_MAX6649R        = 16
+NVML_THERMAL_CONTROLLER_ADT7473S        = 17
+NVML_THERMAL_CONTROLLER_UNKNOWN         = -1
+
+class c_nvmlGpuThermalSensor_t(Structure):
+    _fields_ = [("controller", c_int),
+                ("defaultMinTemp", c_uint),
+                ("defaultMaxTemp", c_uint),
+                ("currentTemp", c_uint),
+                ("target", c_int)]
+class c_nvmlGpuThermalSettings_t(Structure):
+    _fields_ = [("count", c_uint),
+                ("sensor", c_nvmlGpuThermalSensor_t * NVML_MAX_THERMAL_SENSORS_PER_GPU)]
+
 class struct_c_nvmlComputeInstance_t(Structure):
     pass # opaque handle
 c_nvmlComputeInstance_t = POINTER(struct_c_nvmlComputeInstance_t)
@@ -1514,6 +1599,35 @@ class c_nvmlRowRemapperHistogramValues(Structure):
                 ("low", c_uint),
                 ("none", c_uint)
                ]
+
+
+## string/bytes conversion for ease of use
+def convertStrBytes(func):
+    '''
+    In python 3, strings are unicode instead of bytes, and need to be converted for ctypes
+    Args from caller: (1, 'string', <__main__.c_nvmlDevice_t at 0xFFFFFFFF>)
+    Args passed to function: (1, b'string', <__main__.c_nvmlDevice_t at 0xFFFFFFFF)>
+    ----
+    Returned from function: b'returned string'
+    Returned to caller: 'returned string'
+    '''
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # encoding a str returns bytes in python 2 and 3
+        args = [arg.encode() if isinstance(arg, str) else arg for arg in args]
+        res = func(*args, **kwargs)
+        # In python 2, str and bytes are the same
+        # In python 3, str is unicode and should be decoded.
+        # Ctypes handles most conversions, this only effects c_char and char arrays.
+        if isinstance(res, bytes):
+            if isinstance(res, str):
+                return res
+            return res.decode()
+        return res
+
+    if sys.version_info >= (3,):
+        return wrapper
+    return func
 
 ## C function wrappers ##
 def nvmlInitWithFlags(flags):
@@ -1588,6 +1702,7 @@ def nvmlShutdown():
     return None
 
 # Added in 2.285
+@convertStrBytes
 def nvmlErrorString(result):
     fn = _nvmlGetFunctionPointer("nvmlErrorString")
     fn.restype = c_char_p # otherwise return is an int
@@ -1595,6 +1710,7 @@ def nvmlErrorString(result):
     return ret
 
 # Added in 2.285
+@convertStrBytes
 def nvmlSystemGetNVMLVersion():
     c_version = create_string_buffer(NVML_SYSTEM_NVML_VERSION_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlSystemGetNVMLVersion")
@@ -1617,6 +1733,7 @@ def nvmlSystemGetCudaDriverVersion_v2():
     return c_cuda_version.value
 
 # Added in 2.285
+@convertStrBytes
 def nvmlSystemGetProcessName(pid):
     c_name = create_string_buffer(1024)
     fn = _nvmlGetFunctionPointer("nvmlSystemGetProcessName")
@@ -1624,6 +1741,7 @@ def nvmlSystemGetProcessName(pid):
     _nvmlCheckReturn(ret)
     return c_name.value
 
+@convertStrBytes
 def nvmlSystemGetDriverVersion():
     c_version = create_string_buffer(NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlSystemGetDriverVersion")
@@ -1742,6 +1860,7 @@ def nvmlDeviceGetHandleByIndex(index):
     _nvmlCheckReturn(ret)
     return device
 
+@convertStrBytes
 def nvmlDeviceGetHandleBySerial(serial):
     c_serial = c_char_p(serial)
     device = c_nvmlDevice_t()
@@ -1750,6 +1869,7 @@ def nvmlDeviceGetHandleBySerial(serial):
     _nvmlCheckReturn(ret)
     return device
 
+@convertStrBytes
 def nvmlDeviceGetHandleByUUID(uuid):
     c_uuid = c_char_p(uuid)
     device = c_nvmlDevice_t()
@@ -1758,6 +1878,7 @@ def nvmlDeviceGetHandleByUUID(uuid):
     _nvmlCheckReturn(ret)
     return device
 
+@convertStrBytes
 def nvmlDeviceGetHandleByPciBusId(pciBusId):
     c_busId = c_char_p(pciBusId)
     device = c_nvmlDevice_t()
@@ -1766,6 +1887,7 @@ def nvmlDeviceGetHandleByPciBusId(pciBusId):
     _nvmlCheckReturn(ret)
     return device
 
+@convertStrBytes
 def nvmlDeviceGetName(handle):
     c_name = create_string_buffer(NVML_DEVICE_NAME_V2_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetName")
@@ -1794,6 +1916,7 @@ def nvmlDeviceGetBrand(handle):
     _nvmlCheckReturn(ret)
     return c_type.value
 
+@convertStrBytes
 def nvmlDeviceGetBoardPartNumber(handle):
     c_part_number = create_string_buffer(NVML_DEVICE_PART_NUMBER_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetBoardPartNumber")
@@ -1801,6 +1924,7 @@ def nvmlDeviceGetBoardPartNumber(handle):
     _nvmlCheckReturn(ret)
     return c_part_number.value
 
+@convertStrBytes
 def nvmlDeviceGetSerial(handle):
     c_serial = create_string_buffer(NVML_DEVICE_SERIAL_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetSerial")
@@ -1851,6 +1975,7 @@ def nvmlDeviceGetMinorNumber(handle):
     _nvmlCheckReturn(ret)
     return c_minor_number.value
 
+@convertStrBytes
 def nvmlDeviceGetUUID(handle):
     c_uuid = create_string_buffer(NVML_DEVICE_UUID_V2_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetUUID")
@@ -1858,6 +1983,7 @@ def nvmlDeviceGetUUID(handle):
     _nvmlCheckReturn(ret)
     return c_uuid.value
 
+@convertStrBytes
 def nvmlDeviceGetInforomVersion(handle, infoRomObject):
     c_version = create_string_buffer(NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetInforomVersion")
@@ -1867,6 +1993,7 @@ def nvmlDeviceGetInforomVersion(handle, infoRomObject):
     return c_version.value
 
 # Added in 4.304
+@convertStrBytes
 def nvmlDeviceGetInforomImageVersion(handle):
     c_version = create_string_buffer(NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetInforomImageVersion")
@@ -2043,6 +2170,18 @@ def nvmlDeviceGetNumFans(device):
     _nvmlCheckReturn(ret)
     return c_numFans.value
 
+def nvmlDeviceSetDefaultFanSpeed_v2(handle, index):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceSetDefaultFanSpeed_v2");
+    ret = fn(handle, index)
+    _nvmlCheckReturn(ret)
+    return ret
+
+def nvmlDeviceGetMinMaxFanSpeed(handle, minSpeed, maxSpeed):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetMinMaxFanSpeed")
+    ret = fn(handle, minSpeed, maxSpeed)
+    _nvmlCheckReturn(ret)
+    return ret
+
 def nvmlDeviceGetTemperature(handle, sensor):
     c_temp = c_uint()
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetTemperature")
@@ -2200,6 +2339,13 @@ def nvmlDeviceGetCurrentEccMode(handle):
 def nvmlDeviceGetPendingEccMode(handle):
     return nvmlDeviceGetEccMode(handle)[1]
 
+def nvmlDeviceGetDefaultEccMode(handle):
+    c_defaultState = _nvmlEnableState_t()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetDefaultEccMode")
+    ret = fn(handle, byref(c_defaultState))
+    _nvmlCheckReturn(ret)
+    return [c_defaultState.value]
+
 def nvmlDeviceGetTotalEccErrors(handle, errorType, counterType):
     c_count = c_ulonglong()
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetTotalEccErrors")
@@ -2276,6 +2422,7 @@ def nvmlDeviceGetPendingDriverModel(handle):
     return nvmlDeviceGetDriverModel(handle)[1]
 
 # Added in 2.285
+@convertStrBytes
 def nvmlDeviceGetVbiosVersion(handle):
     c_version = create_string_buffer(NVML_DEVICE_VBIOS_VERSION_BUFFER_SIZE)
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetVbiosVersion")
@@ -3006,6 +3153,7 @@ def nvmlVgpuTypeGetGpuInstanceProfileId(vgpuTypeId):
     _nvmlCheckReturn(ret)
     return (c_profile_id.value)
 
+@convertStrBytes
 def nvmlVgpuTypeGetClass(vgpuTypeId):
     c_class = create_string_buffer(NVML_DEVICE_NAME_BUFFER_SIZE)
     c_buffer_size = c_uint(NVML_DEVICE_NAME_BUFFER_SIZE)
@@ -3014,6 +3162,7 @@ def nvmlVgpuTypeGetClass(vgpuTypeId):
     _nvmlCheckReturn(ret)
     return c_class.value
 
+@convertStrBytes
 def nvmlVgpuTypeGetName(vgpuTypeId):
     c_name = create_string_buffer(NVML_DEVICE_NAME_BUFFER_SIZE)
     c_buffer_size = c_uint(NVML_DEVICE_NAME_BUFFER_SIZE)
@@ -3052,6 +3201,7 @@ def nvmlVgpuTypeGetResolution(vgpuTypeId):
     _nvmlCheckReturn(ret)
     return (c_xdim.value, c_ydim.value)
 
+@convertStrBytes
 def nvmlVgpuTypeGetLicense(vgpuTypeId):
     c_license = create_string_buffer(NVML_GRID_LICENSE_BUFFER_SIZE)
     c_buffer_size = c_uint(NVML_GRID_LICENSE_BUFFER_SIZE)
@@ -3107,6 +3257,7 @@ def nvmlDeviceGetActiveVgpus(handle):
         # error case
         raise NVMLError(ret)
 
+@convertStrBytes
 def nvmlVgpuInstanceGetVmID(vgpuInstance):
     c_vm_id = create_string_buffer(NVML_DEVICE_UUID_BUFFER_SIZE)
     c_buffer_size = c_uint(NVML_GRID_LICENSE_BUFFER_SIZE)
@@ -3116,6 +3267,7 @@ def nvmlVgpuInstanceGetVmID(vgpuInstance):
     _nvmlCheckReturn(ret)
     return (c_vm_id.value, c_vm_id_type.value)
 
+@convertStrBytes
 def nvmlVgpuInstanceGetUUID(vgpuInstance):
     c_uuid = create_string_buffer(NVML_DEVICE_UUID_BUFFER_SIZE)
     c_buffer_size = c_uint(NVML_DEVICE_UUID_BUFFER_SIZE)
@@ -3124,6 +3276,7 @@ def nvmlVgpuInstanceGetUUID(vgpuInstance):
     _nvmlCheckReturn(ret)
     return c_uuid.value
 
+@convertStrBytes
 def nvmlVgpuInstanceGetMdevUUID(vgpuInstance):
     c_uuid = create_string_buffer(NVML_DEVICE_UUID_BUFFER_SIZE)
     c_buffer_size = c_uint(NVML_DEVICE_UUID_BUFFER_SIZE)
@@ -3132,6 +3285,7 @@ def nvmlVgpuInstanceGetMdevUUID(vgpuInstance):
     _nvmlCheckReturn(ret)
     return c_uuid.value
 
+@convertStrBytes
 def nvmlVgpuInstanceGetVmDriverVersion(vgpuInstance):
     c_driver_version = create_string_buffer(NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE)
     c_buffer_size = c_uint(NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE)
@@ -3500,6 +3654,7 @@ def nvmlGetVgpuCompatibility(vgpuMetadata, pgpuMetadata):
     _nvmlCheckReturn(ret)
     return c_vgpuPgpuCompatibility
 
+@convertStrBytes
 def nvmlDeviceGetPgpuMetadataString(handle):
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetPgpuMetadataString")
     c_pgpuMetadata = create_string_buffer(NVML_VGPU_PGPU_METADATA_OPAQUE_DATA_SIZE)
@@ -3849,4 +4004,68 @@ def nvmlDeviceGetAdaptiveClockInfoStatus(device):
     ret = fn(device, byref(c_adaptiveClockInfoStatus))
     _nvmlCheckReturn(ret)
     return c_adaptiveClockInfoStatus.value
+
+def nvmlDeviceGetPcieSpeed(device):
+    c_speed = c_uint()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetPcieSpeed")
+    ret = fn(device, byref(c_speed))
+    _nvmlCheckReturn(ret)
+    return c_speed.value
+
+def nvmlDeviceGetDynamicPstatesInfo(device, c_dynamicpstatesinfo):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetDynamicPstatesInfo");
+    ret = fn(device, c_dynamicpstatesinfo)
+    _nvmlCheckReturn(ret)
+    return ret
+
+def nvmlDeviceSetFanSpeed_v2(handle, index, speed):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceSetFanSpeed_v2");
+    ret = fn(handle, index, speed)
+    _nvmlCheckReturn(ret)
+    return ret
+
+def nvmlDeviceGetThermalSettings(device, sensorindex, c_thermalsettings):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetThermalSettings");
+    ret = fn(device, sensorindex, c_thermalsettings)
+    _nvmlCheckReturn(ret)
+    return ret
+
+def nvmlDeviceGetMinMaxClockOfPState(device, type, pstate, minClockMHz, maxClockMHz):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetMinMaxClockOfPState");
+    ret = fn(device, _nvmlClockType_t(type), _nvmlClockType_t(pstate), minClockMHz, maxClockMHz)
+    _nvmlCheckReturn(ret)
+    return ret
+
+def nvmlDeviceGetSupportedPerformanceStates(device):
+    pstates = []
+    c_count = c_uint(NVML_MAX_GPU_PERF_PSTATES)
+    c_size = sizeof(c_uint)*c_count.value
+
+    # NOTE: use 'c_uint' to represent the size of the nvmlPstate_t enumeration.
+    pstates_array = _nvmlPstates_t * c_count.value
+    c_pstates = pstates_array()
+
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetSupportedPerformanceStates")
+    ret = fn(device, c_pstates, c_size)
+    _nvmlCheckReturn(ret)
+
+    for value in c_pstates:
+        if value != NVML_PSTATE_UNKNOWN:
+            pstates.append(value)
+
+    return pstates
+
+def nvmlDeviceGetGpcClkVfOffset(device):
+    offset = c_int32()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetGpcClkVfOffset")
+    ret = fn(device, byref(offset))
+    _nvmlCheckReturn(ret)
+    return offset.value
+
+def nvmlDeviceSetGpcClkVfOffset(device, offset):
+    c_offset = c_int32(offset)
+    fn = _nvmlGetFunctionPointer("nvmlDeviceSetGpcClkVfOffset")
+    ret = fn(device, c_offset)
+    _nvmlCheckReturn(ret)
+    return ret
 
