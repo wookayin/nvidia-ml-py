@@ -18,25 +18,37 @@ http://pypi.python.org/pypi/nvidia-ml-py/
 Note this file can be run with 'python -m doctest -v README.txt'
 although the results are system dependent
 
+The nvml header file contains function documentation that is relevant
+to this wrapper. The header file is distributed with.
+https://developer.nvidia.com/gpu-deployment-kit
+
+The main difference is this library handles allocating structs and
+passing pointers to the functions, before returning the desired value.
+Non-success return codes are raised as exceptions as described in the
+section below.
+
 REQUIRES
 --------
 Python 2.5, or an earlier version with the ctypes module.
 
 INSTALLATION
 ------------
-sudo python setup.py install
+Manual Installation:
+ - sudo python setup.py install
+Pip Installation with python3:
+ - python3 -m pip install nvidia-ml-py
 
 USAGE
 -----
 
     >>> from pynvml import *
     >>> nvmlInit()
-    >>> print "Driver Version:", nvmlSystemGetDriverVersion()
-    Driver Version: 340.00
+    >>> print(f"Driver Version: {nvmlSystemGetDriverVersion()}")
+    Driver Version: 11.515.48
     >>> deviceCount = nvmlDeviceGetCount()
     >>> for i in range(deviceCount):
     ...     handle = nvmlDeviceGetHandleByIndex(i)
-    ...     print "Device", i, ":", nvmlDeviceGetName(handle)
+    ...     print(f"Device {i} : {nvmlDeviceGetName(handle)}")
     ...
     Device 0 : Tesla K40c
 
@@ -53,7 +65,7 @@ Each function's use is the same with the following exceptions:
     >>> try:
     ...     nvmlDeviceGetCount()
     ... except NVMLError as error:
-    ...     print error
+    ...     print(error)
     ...
     Uninitialized
 
@@ -83,11 +95,11 @@ Each function's use is the same with the following exceptions:
     } nvmlMemory_t;
 
     >>> info = nvmlDeviceGetMemoryInfo(handle)
-    >>> print "Total memory:", info.total
+    >>> print(f"Total memory: {info.total}")
     Total memory: 5636292608
-    >>> print "Free memory:", info.free
+    >>> print(f"Free memory:, {info.free}")
     Free memory: 5578420224
-    >>> print "Used memory:", info.used
+    >>> print(f"Used memory: {info.used}")
     Used memory: 57872384
 
 - Python handles string buffer creation.
@@ -108,6 +120,37 @@ All meaningful NVML constants and enums are exposed in Python.
 
 The NVML_VALUE_NOT_AVAILABLE constant is not used.  Instead None is mapped to the field.
 
+EXCEPTIONS
+----------
+Since the C library uses return codes and python prefers exception handling, the
+library converts all return codes to various exceptions. The exceptions are generated
+automatically via a function at run time instead of being defined manually.
+
+The list of exceptions can be found in NVMLError base class.
+
+The example seen above in the FUNCTIONS section:
+
+    >>> try:
+    ...     nvmlDeviceGetCount()
+    ... except NVMLError as error:
+    ...     print(error)
+    ...
+    Uninitialized
+
+Can be more accurately caught like this:
+
+    >>> try:
+    ...     nvmlDeviceGetCount()
+    ... except NVMLError_Uninitialized as error:
+    ...     print(error)
+    ...
+    Uninitialized
+
+The conversion from name to exception is like this for all exceptions:
+- NVML_ERROR_UNINITIALIZED => NVMLError_Uninitialized
+- NVML_ERROR_LIBRARY_NOT_FOUND => NVMLError_LibraryNotFound
+- NVML_ERROR_ALREADY_INITIALIZED => NVMLError_AlreadyInitialized
+
 RELEASE NOTES
 -------------
 Version 2.285.0
@@ -117,7 +160,7 @@ Version 2.285.0
 Version 3.295.0
 - Added new functions for NVML 3.295.  See NVML documentation for more information.
 - Updated nvidia_smi.py tool
-  - Includes additional error handling
+- Includes additional error handling
 Version 4.304.0
 - Added new functions for NVML 4.304.  See NVML documentation for more information.
 - Updated nvidia_smi.py tool
@@ -135,10 +178,16 @@ Version 10.418
 - Added new functions for NVML 10.418.  See NVML documentation for more information.
 - Fixed issues with using the bindings with Python 3.x
 - Replaced sample app nvidia_smi.py with example.py
+Version 11.515.48
+- Python3 support added
+- Updated API to add function new to NVML, bringing pynvml up to date with NVML
+- Added auto-version to handle byte and string conversion automatically for both structs and functions
+- Minor bug fixes
+- Added README.txt correctly in long_description for pypi.org
 
 COPYRIGHT
 ---------
-Copyright (c) 2011-2019, NVIDIA Corporation.  All rights reserved.
+Copyright (c) 2011-2022, NVIDIA Corporation.  All rights reserved.
 
 LICENSE
 -------

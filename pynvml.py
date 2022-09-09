@@ -1568,9 +1568,9 @@ NVML_THERMAL_CONTROLLER_UNKNOWN         = -1
 
 class c_nvmlGpuThermalSensor_t(Structure):
     _fields_ = [("controller", c_int),
-                ("defaultMinTemp", c_uint),
-                ("defaultMaxTemp", c_uint),
-                ("currentTemp", c_uint),
+                ("defaultMinTemp", c_int),
+                ("defaultMaxTemp", c_int),
+                ("currentTemp", c_int),
                 ("target", c_int)]
 class c_nvmlGpuThermalSettings_t(Structure):
     _fields_ = [("count", c_uint),
@@ -2196,8 +2196,9 @@ def nvmlDeviceGetTemperatureThreshold(handle, threshold):
     _nvmlCheckReturn(ret)
     return c_temp.value
 
-def nvmlDeviceSetTemperatureThreshold(handle, threshold):
+def nvmlDeviceSetTemperatureThreshold(handle, threshold, temp):
     c_temp = c_uint()
+    c_temp.value = temp
     fn = _nvmlGetFunctionPointer("nvmlDeviceSetTemperatureThreshold")
     ret = fn(handle, _nvmlTemperatureThresholds_t(threshold), byref(c_temp))
     _nvmlCheckReturn(ret)
