@@ -1,0 +1,23 @@
+name: Synchronize from PyPI
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run this every day at 11PM (minute hour day month week)
+    - cron: "0 23 * * *"
+
+jobs:
+  sync_pypi:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Run the script
+        run: |
+          bash .github/pull-from-pypi.sh
