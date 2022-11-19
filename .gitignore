@@ -1,0 +1,7 @@
+PKG-INFO
+*.egg-info
+*.py[cod]
+
+*.tar.gz
+*.whl
+*.egg
