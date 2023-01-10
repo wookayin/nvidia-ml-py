@@ -42,9 +42,10 @@ finally:
 
 
 setup(name=_package_name,
-      version='11.515.75',
+      version='11.525.84',
       description='Python Bindings for the NVIDIA Management Library',
       long_description=long_description,
+      long_description_content_type='text/markdown',
       py_modules=['pynvml', 'example'],
       package_data={_package_name: ['Example.txt']},
       license='BSD',

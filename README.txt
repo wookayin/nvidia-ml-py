@@ -1,8 +1,6 @@
-======
 pyNVML
 ======
 
-------------------------------------------------
 Python bindings to the NVIDIA Management Library
 ------------------------------------------------
 
@@ -33,84 +31,96 @@ Python 2.5, or an earlier version with the ctypes module.
 
 INSTALLATION
 ------------
-Manual Installation:
- - sudo python setup.py install
+
 Pip Installation with python3:
- - python3 -m pip install nvidia-ml-py
+- `python3 -m pip install nvidia-ml-py`
+
+Manual Installation:
+```
+$ tar -xzf nvidia-ml-py-$major-$minor-$patch.tar.gz`
+$ cd nvidia-ml-py-$major-$minor-$patch
+$ sudo python setup.py install
+```
 
 USAGE
 -----
+```
+>>> from pynvml import *
+>>> nvmlInit()
+>>> print(f"Driver Version: {nvmlSystemGetDriverVersion()}")
+Driver Version: 11.515.48
+>>> deviceCount = nvmlDeviceGetCount()
+>>> for i in range(deviceCount):
+...     handle = nvmlDeviceGetHandleByIndex(i)
+...     print(f"Device {i} : {nvmlDeviceGetName(handle)}")
+...
+Device 0 : Tesla K40c
 
-    >>> from pynvml import *
-    >>> nvmlInit()
-    >>> print(f"Driver Version: {nvmlSystemGetDriverVersion()}")
-    Driver Version: 11.515.48
-    >>> deviceCount = nvmlDeviceGetCount()
-    >>> for i in range(deviceCount):
-    ...     handle = nvmlDeviceGetHandleByIndex(i)
-    ...     print(f"Device {i} : {nvmlDeviceGetName(handle)}")
-    ...
-    Device 0 : Tesla K40c
-
-    >>> nvmlShutdown()
+>>> nvmlShutdown()
+```
 
 FUNCTIONS
 ---------
 Python methods wrap NVML functions, implemented in a C shared library.
 Each function's use is the same with the following exceptions:
 
-- Instead of returning error codes, failing error codes are raised as
-  Python exceptions.
+- Instead of returning error codes, failing error codes are raised as Python exceptions.
 
-    >>> try:
-    ...     nvmlDeviceGetCount()
-    ... except NVMLError as error:
-    ...     print(error)
-    ...
-    Uninitialized
+```
+>>> try:
+...     nvmlDeviceGetCount()
+... except NVMLError as error:
+...     print(error)
+...
+Uninitialized
+```
 
-- C function output parameters are returned from the corresponding
-  Python function left to right.
+- C function output parameters are returned from the corresponding Python function left to right.
+```
+nvmlReturn_t nvmlDeviceGetEccMode(nvmlDevice_t device,
+                                  nvmlEnableState_t *current,
+                                  nvmlEnableState_t *pending);
 
-::
-
-    nvmlReturn_t nvmlDeviceGetEccMode(nvmlDevice_t device,
-                                      nvmlEnableState_t *current,
-                                      nvmlEnableState_t *pending);
-
-    >>> nvmlInit()
-    >>> handle = nvmlDeviceGetHandleByIndex(0)
-    >>> (current, pending) = nvmlDeviceGetEccMode(handle)
-
+>>> nvmlInit()
+>>> handle = nvmlDeviceGetHandleByIndex(0)
+>>> (current, pending) = nvmlDeviceGetEccMode(handle)
+```
 - C structs are converted into Python classes.
 
-::
+```
+// C Function and typedef struct
+nvmlReturn_t DECLDIR nvmlDeviceGetMemoryInfo(nvmlDevice_t device,
+                                             nvmlMemory_t *memory);
+typedef struct nvmlMemory_st {
+    unsigned long long total;
+    unsigned long long free;
+    unsigned long long used;
+} nvmlMemory_t;
 
-    nvmlReturn_t DECLDIR nvmlDeviceGetMemoryInfo(nvmlDevice_t device,
-                                                 nvmlMemory_t *memory);
-    typedef struct nvmlMemory_st {
-        unsigned long long total;
-        unsigned long long free;
-        unsigned long long used;
-    } nvmlMemory_t;
 
-    >>> info = nvmlDeviceGetMemoryInfo(handle)
-    >>> print(f"Total memory: {info.total}")
-    Total memory: 5636292608
-    >>> print(f"Free memory:, {info.free}")
-    Free memory: 5578420224
-    >>> print(f"Used memory: {info.used}")
-    Used memory: 57872384
+# Python call to function and accessing members of ctype struct
+>>> info = nvmlDeviceGetMemoryInfo(handle)
+>>> print(f"Total memory: {info.total}")
+Total memory: 5636292608
+>>> print(f"Free memory:, {info.free}")
+Free memory: 5578420224
+>>> print(f"Used memory: {info.used}")
+Used memory: 57872384
+```
 
 - Python handles string buffer creation.
 
-::
+```
+// C Function that needs character array and length
+nvmlReturn_t nvmlSystemGetDriverVersion(char* version,
+                                        unsigned int length);
 
-    nvmlReturn_t nvmlSystemGetDriverVersion(char* version,
-                                            unsigned int length);
-
-    >>> version = nvmlSystemGetDriverVersion();
-    >>> nvmlShutdown()
+# Python function handles memory
+>>> version = nvmlSystemGetDriverVersion()
+>>> print(version)
+... 11.520.75
+>>> nvmlShutdown()
+```
 
 For usage information see the NVML documentation.
 
@@ -130,26 +140,30 @@ The list of exceptions can be found in NVMLError base class.
 
 The example seen above in the FUNCTIONS section:
 
-    >>> try:
-    ...     nvmlDeviceGetCount()
-    ... except NVMLError as error:
-    ...     print(error)
-    ...
-    Uninitialized
+```
+>>> try:
+...     nvmlDeviceGetCount()
+... except NVMLError as error:
+...     print(error)
+...
+Uninitialized
+```
 
 Can be more accurately caught like this:
 
-    >>> try:
-    ...     nvmlDeviceGetCount()
-    ... except NVMLError_Uninitialized as error:
-    ...     print(error)
-    ...
-    Uninitialized
+```
+>>> try:
+...     nvmlDeviceGetCount()
+... except NVMLError_Uninitialized as error:
+...     print(error)
+...
+Uninitialized
+```
 
 The conversion from name to exception is like this for all exceptions:
-- NVML_ERROR_UNINITIALIZED => NVMLError_Uninitialized
-- NVML_ERROR_LIBRARY_NOT_FOUND => NVMLError_LibraryNotFound
-- NVML_ERROR_ALREADY_INITIALIZED => NVMLError_AlreadyInitialized
+* `NVML_ERROR_UNINITIALIZED` => `NVMLError_Uninitialized`
+* `NVML_ERROR_LIBRARY_NOT_FOUND` => `NVMLError_LibraryNotFound`
+* `NVML_ERROR_ALREADY_INITIALIZED` => `NVMLError_AlreadyInitialized`
 
 RELEASE NOTES
 -------------
@@ -157,27 +171,36 @@ Version 2.285.0
 - Added new functions for NVML 2.285.  See NVML documentation for more information.
 - Ported to support Python 3.0 and Python 2.0 syntax.
 - Added nvidia_smi.py tool as a sample app.
+
 Version 3.295.0
 - Added new functions for NVML 3.295.  See NVML documentation for more information.
 - Updated nvidia_smi.py tool
 - Includes additional error handling
+
 Version 4.304.0
 - Added new functions for NVML 4.304.  See NVML documentation for more information.
 - Updated nvidia_smi.py tool
+
 Version 4.304.3
 - Fixing nvmlUnitGetDeviceCount bug
+
 Version 5.319.0
 - Added new functions for NVML 5.319.  See NVML documentation for more information.
+
 Version 6.340.0
 - Added new functions for NVML 6.340.  See NVML documentation for more information.
+
 Version 7.346.0
 - Added new functions for NVML 7.346.  See NVML documentation for more information.
+
 Version 7.352.0
 - Added new functions for NVML 7.352.  See NVML documentation for more information.
+
 Version 10.418
 - Added new functions for NVML 10.418.  See NVML documentation for more information.
 - Fixed issues with using the bindings with Python 3.x
 - Replaced sample app nvidia_smi.py with example.py
+
 Version 11.515.48
 - Python3 support added
 - Updated API to add function new to NVML, bringing pynvml up to date with NVML
@@ -185,9 +208,16 @@ Version 11.515.48
 - Minor bug fixes
 - Added README.txt correctly in long_description for pypi.org
 
+Version 11.520
+- Updated Long Description to be actual markdown
+- Added new functions for NVML 11.520
+
+Version 11.525
+- Added new functions for NVML 11.525
+
 COPYRIGHT
 ---------
-Copyright (c) 2011-2022, NVIDIA Corporation.  All rights reserved.
+Copyright (c) 2011-2023, NVIDIA Corporation.  All rights reserved.
 
 LICENSE
 -------
