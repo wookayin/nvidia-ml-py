@@ -1,5 +1,5 @@
 #####
-# Copyright (c) 2011-2022, NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2011-2023, NVIDIA Corporation.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -348,6 +348,7 @@ NVML_P2P_CAPS_INDEX_UNKNOWN = 6
 _nvmlGpuP2PStatus_t = c_uint
 NVML_P2P_STATUS_OK     = 0
 NVML_P2P_STATUS_CHIPSET_NOT_SUPPORED = 1
+NVML_P2P_STATUS_CHIPSET_NOT_SUPPORTED = NVML_P2P_STATUS_CHIPSET_NOT_SUPPORED
 NVML_P2P_STATUS_GPU_NOT_SUPPORTED = 2
 NVML_P2P_STATUS_IOH_TOPOLOGY_NOT_SUPPORTED =3
 NVML_P2P_STATUS_DISABLED_BY_REGKEY =4
@@ -667,7 +668,21 @@ NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD        = 168
 
 NVML_FI_DEV_PCIE_L0_TO_RECOVERY_COUNTER       = 169
 
-NVML_FI_MAX = 170 # One greater than the largest field ID defined above
+NVML_FI_DEV_PCIE_COUNT_CORRECTABLE_ERRORS     = 173
+NVML_FI_DEV_PCIE_COUNT_NAKS_RECEIVED          = 174
+NVML_FI_DEV_PCIE_COUNT_RECEIVER_ERROR         = 175
+NVML_FI_DEV_PCIE_COUNT_BAD_TLP                = 176
+NVML_FI_DEV_PCIE_COUNT_NAKS_SENT              = 177
+NVML_FI_DEV_PCIE_COUNT_BAD_DLLP               = 178
+NVML_FI_DEV_PCIE_COUNT_NON_FATAL_ERROR        = 179
+NVML_FI_DEV_PCIE_COUNT_FATAL_ERROR            = 180
+NVML_FI_DEV_PCIE_COUNT_UNSUPPORTED_REQ        = 181
+NVML_FI_DEV_PCIE_COUNT_LCRC_ERROR             = 182 
+
+NVML_FI_DEV_POWER_AVERAGE                     = 185
+NVML_FI_DEV_POWER_INSTANT                     = 186
+
+NVML_FI_MAX = 187 # One greater than the largest field ID defined above
 
 
 ## Enums needed for the method nvmlDeviceGetVirtualizationMode and nvmlDeviceSetVirtualizationMode
