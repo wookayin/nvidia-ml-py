@@ -1,5 +1,5 @@
 #####
-# Copyright (c) 2011-2023, NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2011-2022, NVIDIA Corporation.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -77,6 +77,7 @@ NVML_TEMPERATURE_THRESHOLD_COUNT         = 7
 _nvmlTemperatureSensors_t = c_uint
 NVML_TEMPERATURE_GPU     = 0
 NVML_TEMPERATURE_COUNT   = 1
+
 
 _nvmlComputeMode_t = c_uint
 NVML_COMPUTEMODE_DEFAULT           = 0
@@ -280,7 +281,8 @@ NVML_VALUE_TYPE_UNSIGNED_INT = 1
 NVML_VALUE_TYPE_UNSIGNED_LONG = 2
 NVML_VALUE_TYPE_UNSIGNED_LONG_LONG = 3
 NVML_VALUE_TYPE_SIGNED_LONG_LONG = 4
-NVML_VALUE_TYPE_COUNT = 5
+NVML_VALUE_TYPE_SIGNED_INT = 5
+NVML_VALUE_TYPE_COUNT = 6
 
 _nvmlPerfPolicyType_t = c_uint
 NVML_PERF_POLICY_POWER = 0
@@ -682,7 +684,12 @@ NVML_FI_DEV_PCIE_COUNT_LCRC_ERROR             = 182
 NVML_FI_DEV_POWER_AVERAGE                     = 185
 NVML_FI_DEV_POWER_INSTANT                     = 186
 
-NVML_FI_MAX = 187 # One greater than the largest field ID defined above
+NVML_FI_DEV_TEMPERATURE_SHUTDOWN_TLIMIT       = 193
+NVML_FI_DEV_TEMPERATURE_SLOWDOWN_TLIMIT       = 194
+NVML_FI_DEV_TEMPERATURE_MEM_MAX_TLIMIT        = 195
+NVML_FI_DEV_TEMPERATURE_GPU_MAX_TLIMIT        = 196
+
+NVML_FI_MAX = 197 # One greater than the largest field ID defined above
 
 
 ## Enums needed for the method nvmlDeviceGetVirtualizationMode and nvmlDeviceSetVirtualizationMode
@@ -1159,6 +1166,7 @@ class c_nvmlValue_t(Union):
         ('ulVal', c_ulong),
         ('ullVal', c_ulonglong),
         ('sllVal', c_longlong),
+        ('siVal', c_int),
     ]
 
 class c_nvmlSample_t(_PrintableStructure):
