@@ -797,6 +797,7 @@ NVML_CC_SYSTEM_GPUS_CC_CAPABLE = 1
 _nvmlConfComputeCpuCaps_t = c_uint
 NVML_CC_SYSTEM_CPU_CAPS_NONE = 0
 NVML_CC_SYSTEM_CPU_CAPS_AMD_SEV = 1
+NVML_CC_SYSTEM_CPU_CAPS_INTEL_TDX = 2
 
 _nvmlConfComputeDevToolsMode_t = c_uint
 NVML_CC_SYSTEM_DEVTOOLS_MODE_OFF = 0
@@ -1156,7 +1157,23 @@ class nvmlClkMonStatus_t(Structure):
 # endif
 #
 # See NVML documentation for more information
-class c_nvmlProcessInfo_t(_PrintableStructure):
+class c_nvmlProcessInfo_v2_t(_PrintableStructure):
+    _fields_ = [
+        ('pid', c_uint),
+        ('usedGpuMemory', c_ulonglong),
+        ('gpuInstanceId', c_uint),
+        ('computeInstanceId', c_uint),
+    ]
+    _fmt_ = {'usedGpuMemory': "%d B"}
+
+c_nvmlProcessInfo_t = c_nvmlProcessInfo_v2_t
+
+_nvmlProcessMode_t = c_uint
+NVML_PROCESS_MODE_COMPUTE  = 0
+NVML_PROCESS_MODE_GRAPHICS = 1
+NVML_PROCESS_MODE_MPS      = 2
+
+class c_nvmlProcessDetail_v1_t(Structure):
     _fields_ = [
         ('pid', c_uint),
         ('usedGpuMemory', c_ulonglong),
@@ -1164,9 +1181,19 @@ class c_nvmlProcessInfo_t(_PrintableStructure):
         ('computeInstanceId', c_uint),
         ('usedGpuCcProtectedMemory', c_ulonglong),
     ]
-    _fmt_ = {'usedGpuMemory': "%d B",
-            'usedGpuCcProtectedMemory' : "%d B",
-            }
+
+class c_nvmlProcessDetailList_v1_t(_PrintableStructure):
+    _fields_ = [
+        ('version', c_uint),
+        ('mode', _nvmlProcessMode_t),
+        ('numProcArrayEntries', c_uint),
+        ('procArray', POINTER(c_nvmlProcessDetail_v1_t)),
+    ]
+    _fmt_ = {'numProcArrayEntries': "%d B"}
+
+c_nvmlProcessDetailList_t = c_nvmlProcessDetailList_v1_t
+
+nvmlProcessDetailList_v1 = 0x1000010
 
 class c_nvmlBridgeChipInfo_t(_PrintableStructure):
     _fields_ = [
@@ -1517,6 +1544,10 @@ NVML_SUPPORTED_VGPU_SCHEDULER_POLICY_COUNT  = 3
 
 NVML_SCHEDULER_SW_MAX_LOG_ENTRIES           = 200
 
+NVML_VGPU_SCHEDULER_ARR_DEFAULT   = 0
+NVML_VGPU_SCHEDULER_ARR_DISABLE   = 1
+NVML_VGPU_SCHEDULER_ARR_ENABLE    = 2
+
 class c_nvmlVgpuSchedDataWithARR_t(_PrintableStructure):
     _fields_ = [
         ('avgFactor',   c_uint),
@@ -1548,7 +1579,7 @@ class c_nvmlVgpuSchedulerLog_t(_PrintableStructure):
     _fields_ = [
         ('engineId',        c_uint),
         ('schedulerPolicy', c_uint),
-        ('isEnabledARR',    c_uint),
+        ('arrMode',         c_uint),
         ('schedulerParams', c_nvmlVgpuSchedulerParams_t),
         ('entriesCount',    c_uint),
         ('logEntries',      c_nvmlVgpuSchedulerLogEntry_t * NVML_SCHEDULER_SW_MAX_LOG_ENTRIES),
@@ -1557,7 +1588,7 @@ class c_nvmlVgpuSchedulerLog_t(_PrintableStructure):
 class c_nvmlVgpuSchedulerGetState_t(_PrintableStructure):
     _fields_ = [
         ('schedulerPolicy', c_uint),
-        ('isEnabledARR',    c_uint),
+        ('arrMode',         c_uint),
         ('schedulerParams', c_nvmlVgpuSchedulerParams_t),
     ]
 
@@ -2762,8 +2793,6 @@ def nvmlDeviceGetComputeRunningProcesses_v3(handle):
             if (obj.usedGpuMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
                 # special case for WDDM on Windows, see comment above
                 obj.usedGpuMemory = None
-            if (obj.usedGpuCcProtectedMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
-                obj.usedGpuCcProtectedMemory = None
             procs.append(obj)
 
         return procs
@@ -2772,7 +2801,7 @@ def nvmlDeviceGetComputeRunningProcesses_v3(handle):
         raise NVMLError(ret)
 
 def nvmlDeviceGetComputeRunningProcesses(handle):
-    return nvmlDeviceGetComputeRunningProcesses_v3(handle);
+    return nvmlDeviceGetComputeRunningProcesses_v3(handle)
 
 def nvmlDeviceGetGraphicsRunningProcesses_v3(handle):
     # first call to get the size
@@ -2801,8 +2830,6 @@ def nvmlDeviceGetGraphicsRunningProcesses_v3(handle):
             if (obj.usedGpuMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
                 # special case for WDDM on Windows, see comment above
                 obj.usedGpuMemory = None
-            if (obj.usedGpuCcProtectedMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
-                obj.usedGpuCcProtectedMemory = None
             procs.append(obj)
 
         return procs
@@ -2843,14 +2870,21 @@ def nvmlDeviceGetMPSComputeRunningProcesses_v3(handle):
             if (obj.usedGpuMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
                 # special case for WDDM on Windows, see comment above
                 obj.usedGpuMemory = None
-            if (obj.usedGpuCcProtectedMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
-                obj.usedGpuCcProtectedMemory = None
             procs.append(obj)
 
         return procs
     else:
         # error case
         raise NVMLError(ret)
+
+def nvmlDeviceGetRunningProcessDetailList(handle, version, mode):
+    c_processDetailList = c_nvmlProcessDetailList_t()
+    c_processDetailList.version = version
+    c_processDetailList.mode = mode
+
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetRunningProcessDetailList")
+    ret = fn(handle, c_processDetailList)
+    return ret
 
 def nvmlDeviceGetAutoBoostedClocksEnabled(handle):
     c_isEnabled = _nvmlEnableState_t()
