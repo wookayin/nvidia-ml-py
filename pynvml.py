@@ -299,6 +299,8 @@ NVML_PERF_POLICY_COUNT = 12
 _nvmlEncoderQueryType_t = c_uint
 NVML_ENCODER_QUERY_H264 = 0
 NVML_ENCODER_QUERY_HEVC = 1
+NVML_ENCODER_QUERY_AV1 = 2
+NVML_ENCODER_QUERY_UNKNOWN = 255
 
 _nvmlFBCSessionType_t = c_uint
 NVML_FBC_SESSION_TYPE_UNKNOWN = 0
@@ -1193,7 +1195,7 @@ class c_nvmlProcessDetailList_v1_t(_PrintableStructure):
 
 c_nvmlProcessDetailList_t = c_nvmlProcessDetailList_v1_t
 
-nvmlProcessDetailList_v1 = 0x1000010
+nvmlProcessDetailList_v1 = 0x1000018
 
 class c_nvmlBridgeChipInfo_t(_PrintableStructure):
     _fields_ = [
@@ -2315,6 +2317,14 @@ def nvmlDeviceValidateInforom(handle):
     _nvmlCheckReturn(ret)
     return None
 
+def nvmlDeviceGetLastBBXFlushTime(handle):
+    c_timestamp = c_ulonglong()
+    c_durationUs = c_ulong()
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetLastBBXFlushTime")
+    ret = fn(handle, byref(c_timestamp), byref(c_durationUs))
+    _nvmlCheckReturn(ret)
+    return [c_timestamp.value, c_durationUs.value]
+
 def nvmlDeviceGetDisplayMode(handle):
     c_mode = _nvmlEnableState_t()
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetDisplayMode")
@@ -2883,8 +2893,34 @@ def nvmlDeviceGetRunningProcessDetailList(handle, version, mode):
     c_processDetailList.mode = mode
 
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetRunningProcessDetailList")
-    ret = fn(handle, c_processDetailList)
-    return ret
+
+    # first call to get the size
+    ret = fn(handle, byref(c_processDetailList))
+    if (ret == NVML_SUCCESS):
+        # special case, no running processes
+        return []
+    elif (ret == NVML_ERROR_INSUFFICIENT_SIZE):
+        c_procs = c_nvmlProcessDetail_v1_t * c_processDetailList.numProcArrayEntries
+        c_processDetailList.procArray = cast((c_procs)(), POINTER(c_nvmlProcessDetail_v1_t))
+
+        # make the call again
+        ret = fn(handle, byref(c_processDetailList))
+        _nvmlCheckReturn(ret)
+
+        procs = []
+        for i in range(c_processDetailList.numProcArrayEntries):
+            # use an alternative struct for this object
+            obj = c_processDetailList.procArray[i]
+            if (obj.usedGpuMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
+                obj.usedGpuMemory = None
+            if (obj.usedGpuCcProtectedMemory == NVML_VALUE_NOT_AVAILABLE_ulonglong.value):
+                obj.usedGpuCcProtectedMemory = None
+            procs.append(obj)
+
+        return procs
+    else:
+        # error case
+        raise NVMLError(ret)
 
 def nvmlDeviceGetAutoBoostedClocksEnabled(handle):
     c_isEnabled = _nvmlEnableState_t()
