@@ -4861,7 +4861,7 @@ def nvmlSystemSetNvlinkBwMode(mode):
     return ret
 
 def nvmlSystemGetNvlinkBwMode():
-    mode = c_uint();
+    mode = c_uint()
     fn = _nvmlGetFunctionPointer("nvmlSystemGetNvlinkBwMode")
     ret = fn(byref(mode))
     _nvmlCheckReturn(ret)
@@ -4889,5 +4889,33 @@ def nvmlDeviceSetPowerManagementLimit_v2(device, powerScope, powerLimit, version
     c_powerValue.powerValueMw = c_uint(powerLimit)
     fn = _nvmlGetFunctionPointer("nvmlDeviceSetPowerManagementLimit_v2")
     ret = fn(device, byref(c_powerValue))
+    return ret
+
+class c_nvmlEccSramErrorStatus_v1_t(_PrintableStructure):
+    _fields_ = [
+        ('version', c_uint),
+        ('aggregateUncParity', c_ulonglong),
+        ('aggregateUncSecDed', c_ulonglong),
+        ('aggregateCor', c_ulonglong),
+        ('volatileUncParity', c_ulonglong),
+        ('volatileUncSecDed', c_ulonglong),
+        ('volatileCor', c_ulonglong),
+        ('aggregateUncBucketL2', c_ulonglong),
+        ('aggregateUncBucketSm', c_ulonglong),
+        ('aggregateUncBucketPcie', c_ulonglong),
+        ('aggregateUncBucketMcu', c_ulonglong),
+        ('aggregateUncBucketOther', c_ulonglong),
+        ('bThresholdExceeded', c_uint)
+    ]
+
+    def __init__(self):
+        super(c_nvmlEccSramErrorStatus_v1_t, self).__init__(version=nvmlEccSramErrorStatus_v1)
+
+nvmlEccSramErrorStatus_v1 = 0x1000068
+
+def nvmlDeviceGetSramEccErrorStatus(device, status):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetSramEccErrorStatus")
+    ret = fn(device, status)
+    _nvmlCheckReturn(ret)
     return ret
 
