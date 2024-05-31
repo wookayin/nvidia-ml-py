@@ -42,7 +42,7 @@ finally:
 
 
 setup(name=_package_name,
-      version='12.550.52',
+      version='12.555.43',
       description='Python Bindings for the NVIDIA Management Library',
       long_description=long_description,
       long_description_content_type='text/markdown',

@@ -72,7 +72,8 @@ NVML_TEMPERATURE_THRESHOLD_GPU_MAX       = 3
 NVML_TEMPERATURE_THRESHOLD_ACOUSTIC_MIN  = 4
 NVML_TEMPERATURE_THRESHOLD_ACOUSTIC_CURR = 5
 NVML_TEMPERATURE_THRESHOLD_ACOUSTIC_MAX  = 6
-NVML_TEMPERATURE_THRESHOLD_COUNT         = 7
+NVML_TEMPERATURE_THRESHOLD_GPS_CURR      = 7
+NVML_TEMPERATURE_THRESHOLD_COUNT         = 8
 
 _nvmlTemperatureSensors_t = c_uint
 NVML_TEMPERATURE_GPU     = 0
@@ -378,6 +379,7 @@ NVML_DEVICE_ARCH_TURING   = 6
 NVML_DEVICE_ARCH_AMPERE   = 7
 NVML_DEVICE_ARCH_ADA      = 8
 NVML_DEVICE_ARCH_HOPPER   = 9
+NVML_DEVICE_ARCH_T23X     = 11
 NVML_DEVICE_ARCH_UNKNOWN  = 0xffffffff
 
 # PCI bus Types
@@ -716,10 +718,14 @@ NVML_FI_DEV_TEMPERATURE_SLOWDOWN_TLIMIT       = 194
 NVML_FI_DEV_TEMPERATURE_MEM_MAX_TLIMIT        = 195
 NVML_FI_DEV_TEMPERATURE_GPU_MAX_TLIMIT        = 196
 
-NVML_FI_DEV_IS_MIG_MODE_INDEPENDENT_MIG_QUERY_CAPABLE   = 199
+NVML_FI_DEV_PCIE_COUNT_TX_BYTES               = 197
+NVML_FI_DEV_PCIE_COUNT_RX_BYTES               = 198
 
-NVML_FI_MAX = 200 # One greater than the largest field ID defined above
+NVML_FI_DEV_NVLINK_GET_POWER_THRESHOLD_MAX    = 199
 
+NVML_FI_DEV_IS_MIG_MODE_INDEPENDENT_MIG_QUERY_CAPABLE   = 200
+
+NVML_FI_MAX = 223 # One greater than the largest field ID defined above
 
 ## Enums needed for the method nvmlDeviceGetVirtualizationMode and nvmlDeviceSetVirtualizationMode
 NVML_GPU_VIRTUALIZATION_MODE_NONE        = 0  # Represents Bare Metal GPU
@@ -817,6 +823,9 @@ NVML_CC_SYSTEM_CPU_CAPS_INTEL_TDX = 2
 _nvmlConfComputeDevToolsMode_t = c_uint
 NVML_CC_SYSTEM_DEVTOOLS_MODE_OFF = 0
 NVML_CC_SYSTEM_DEVTOOLS_MODE_ON = 1
+
+NVML_CC_SYSTEM_MULTIGPU_NONE = 0
+NVML_CC_SYSTEM_MULTIGPU_PROTECTED_PCIE = 1
  
 NVML_CC_SYSTEM_ENVIRONMENT_UNAVAILABLE = 0
 NVML_CC_SYSTEM_ENVIRONMENT_SIM = 1
@@ -1194,10 +1203,12 @@ class nvmlClkMonFaultInfo_t(Structure):
                 ("clkDomainFaultMask", c_uint)
     ]
 
+MAX_CLK_DOMAINS = 32
+
 class nvmlClkMonStatus_t(Structure):
     _fields_ = [("bGlobalStatus", c_uint),
                 ("clkMonListSize", c_uint),
-                ("clkMonList", nvmlClkMonFaultInfo_t)
+                ("clkMonList", nvmlClkMonFaultInfo_t * MAX_CLK_DOMAINS)
     ]
 
 # On Windows with the WDDM driver, usedGpuMemory is reported as None
@@ -4970,6 +4981,28 @@ def nvmlDeviceGetMinMaxClockOfPState(device, type, pstate, minClockMHz, maxClock
     _nvmlCheckReturn(ret)
     return ret
 
+class c_nvmlClockOffset_t(_PrintableStructure):
+    _fields_ = [
+        ('version', c_uint),
+        ('type', _nvmlClockType_t),
+        ('pstate', _nvmlPstates_t),
+        ('clockOffsetMHz', c_int),
+        ('minClockOffsetMHz', c_int),
+        ('maxClockOffsetMHz', c_int),
+    ]
+
+nvmlClockOffset_v1 = 0x1000018
+
+def nvmlDeviceGetClockOffsets(device, info):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetClockOffsets");
+    ret = fn(device, info)
+    return ret
+
+def nvmlDeviceSetClockOffsets(device, info):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceSetClockOffsets");
+    ret = fn(device, info)
+    return ret
+
 def nvmlDeviceGetSupportedPerformanceStates(device):
     pstates = []
     c_count = c_uint(NVML_MAX_GPU_PERF_PSTATES)
@@ -5299,9 +5332,10 @@ def nvmlGpmQueryIfStreamingEnabled(device):
 NVML_NVLINK_POWER_STATE_HIGH_SPEED    = 0x0
 NVML_NVLINK_POWER_STATE_LOW           = 0x1
 
-NVML_NVLINK_LOW_POWER_THRESHOLD_MIN   = 0x1
-NVML_NVLINK_LOW_POWER_THRESHOLD_MAX   = 0x1FFF
-NVML_NVLINK_LOW_POWER_THRESHOLD_RESET = 0xFFFFFFFF
+NVML_NVLINK_LOW_POWER_THRESHOLD_MIN     = 0x1
+NVML_NVLINK_LOW_POWER_THRESHOLD_MAX     = 0x1FFF
+NVML_NVLINK_LOW_POWER_THRESHOLD_RESET   = 0xFFFFFFFF
+NVML_NVLINK_LOW_POWER_THRESHOLD_DEFAULT = NVML_NVLINK_LOW_POWER_THRESHOLD_RESET
 
 class c_nvmlNvLinkPowerThres_t(Structure):
     _fields_ = [
@@ -5426,10 +5460,25 @@ class c_nvmlEccSramErrorStatus_v1_t(_PrintableStructure):
         super(c_nvmlEccSramErrorStatus_v1_t, self).__init__(version=nvmlEccSramErrorStatus_v1)
 
 nvmlEccSramErrorStatus_v1 = 0x1000068
-
 def nvmlDeviceGetSramEccErrorStatus(device, status):
     fn = _nvmlGetFunctionPointer("nvmlDeviceGetSramEccErrorStatus")
     ret = fn(device, status)
     _nvmlCheckReturn(ret)
     return ret
 
+NVML_DEV_CAP_EGM = (1 << 0)
+nvmlDeviceCapabilities_v1 = 0x1000008
+
+class c_nvmlDeviceCapabilities_v1_t(_PrintableStructure):
+    _fields_ = [
+        ('version', c_uint),
+        ('capMask', c_uint),
+    ]
+
+    def __init__(self):
+        super(c_nvmlDeviceCapabilities_v1_t, self).__init__(version=nvmlDeviceCapabilities_v1)
+
+
+def nvmlDeviceGetCapabilities(device, caps):
+    fn = _nvmlGetFunctionPointer("nvmlDeviceGetCapabilities")
+    return fn(device, caps)
